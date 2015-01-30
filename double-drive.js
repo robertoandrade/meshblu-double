@@ -859,6 +859,16 @@ function endSession() {
 	opentokDisconnect();
 }
 
+function move(drive, turn) {
+	//debug("drive: " + drive + ", turn: " + turn);
+	sendCommandWithData(commands.kDRCommandControlDrive, { "drive" : drive, "turn" : turn });
+}
+
+function look(pole) {
+	//debug("pole: " + pole);
+	sendCommandWithData(commands.kDRCommandControlPole, { "pole" : pole });
+}
+
 function fireDriveCommands() {
 	var drive = (forwardState == 1) ? -100 : ((backwardState) ? 50 : 0);
 	var turn = (leftState == 1) ? 100 : ((rightState) ? -100 : 0);
@@ -888,8 +898,7 @@ function fireDriveCommands() {
 	}
 
 	if (neutralDriveCommandsSent < 10) {
-		//debug("drive: " + drive + ", turn: " + turn);
-		sendCommandWithData(commands.kDRCommandControlDrive, { "drive" : drive, "turn" : turn });
+		move(drive, turn);
 	}
 
 	if (robotSpeakerVolumeToSend != -1) {
@@ -911,8 +920,7 @@ function fireDriveCommands() {
 		}
 
 		if (neutralPoleCommandsSent < 10) {
-			//debug("pole: " + pole);
-			sendCommandWithData(commands.kDRCommandControlPole, { "pole" : pole });
+			look(pole);
 		}
 	}
 
@@ -1353,6 +1361,8 @@ function opentokDisconnect() {
 		poleDown: poleDown,
 		moveForward: moveForward,
 		moveBackward: moveBackward,
+		move: move,
+		look: look,
 		takePhoto: takePhoto,
 		debug: debug,
 	});
