@@ -16,10 +16,6 @@ Repl.prototype.resume = function() {
   /* jshint evil:true */
   this._nodeEval = this._repl.eval;
 
-  // @TODO This does not seem to work for animate('yawShake', 2000), need
-  // to fix this.
-  //this._repl.eval = this._eval.bind(this);
-
   this._setupAutocomplete();
 };
 
@@ -82,7 +78,7 @@ Repl.prototype._eval = function(code, context, filename, cb) {
 var DoubleDrive = require('./double-drive');
 
 var drive = new DoubleDrive({
-	userId: "gc8Log4bl4",
+	userId: "a3fb91cd00ac9f5f76677ccfb1f6161750f401fd",
 	public_key: 'doubledemo'
 });
 
@@ -102,8 +98,6 @@ drive.openDownloaded = function() {
 
 	var upload = 
 		request
-			//.post('http://imgur.com/upload')
-			//.set('Accept', 'application/json')
 			.post('https://api.imgur.com/3/image.xml')
 			.set('Authorization', 'Client-ID 51f229880e3ea84')
 			.attach('image', drive.downloadedFileName);

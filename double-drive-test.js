@@ -1,6 +1,6 @@
 var DoubleDrive = require('./double-drive');
 var drive = new DoubleDrive({
-	userId: "gc8Log4bl4",
+	userId: "a3fb91cd00ac9f5f76677ccfb1f6161750f401fd",
 	public_key: 'doubledemo'
 });
 
