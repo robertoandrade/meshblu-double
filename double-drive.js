@@ -103,6 +103,7 @@ var kDRRobotStatusAway = 2;
 function DoubleDrive(options) 
 {
 	var self = this;
+	self.self = self;
 	self.options = options;
 	
 //************************************************************************************
@@ -205,7 +206,45 @@ var scrollValue = 0;
 var nightVisionEnabled = false;
 var lastBrightnessSent = -1;
 
-var publicRobotsSwitch = 0;
+var publicRobotsSwitch = -1;
+
+function checkTimedReset(timeout) {
+	if (timeout) {
+		setTimeout(reset, timeout);
+	}
+}
+
+function turnLeft(timeout) {
+	leftState = 1;
+	fireDriveCommands();
+	checkTimedReset(timeout);
+}
+
+function turnRight(timeout) {
+	rightState = 1;
+	fireDriveCommands();
+	checkTimedReset(timeout);
+}
+
+function poleUp(timeout) {
+	poleUpState = 1;
+	checkTimedReset(timeout);
+}
+
+function poleDown(timeout) {
+	poleDownState = 1;
+	checkTimedReset(timeout);
+}
+
+function moveForward(timeout) {
+	forwardState = 1;
+	checkTimedReset(timeout);
+}
+
+function moveBackward(timeout) {
+	backwardState = 1;
+	checkTimedReset(timeout);
+}
 
 function keydown(e) {
 	if (!opentokSessionId) {
@@ -220,10 +259,7 @@ function keydown(e) {
 			// So we are firing a timer here after 200ms to update leftState for firing driver commands		
 			if (leftKeyDownStartTime == 0) {
 				leftKeyDownStartTime = Date.now();
-				leftTurnTimeout = setTimeout(function() {
-									leftState = 1;
-									fireDriveCommands();
-									}, 200);
+				leftTurnTimeout = setTimeout(turnLeft, 200);
 			}
 			
 			return false;
@@ -235,10 +271,7 @@ function keydown(e) {
 			// So we are firing a timer here after 200ms to update leftState for firing driver commands		
 			if (rightKeyDownStartTime == 0) {
 				rightKeyDownStartTime = Date.now();
-				rightTurnTimeout = setTimeout(function() {
-									rightState = 1;
-									fireDriveCommands();
-									}, 200);
+				rightTurnTimeout = setTimeout(turnRight, 200);
 			}
 			
 			return false;
@@ -248,19 +281,19 @@ function keydown(e) {
 			if (forwardState == 0 && kickstandState == kDRKickstand_stateDeployed) {
 				parkAction();
 			}
-			forwardState = 1;
+			moveForward();
 			return false;
 
  		case 40: // backward, arrow
  		case 83: // backward, s
- 			backwardState = 1;
+ 			moveBackward();
 			return false;
 
  		case 82: // pole up, r
 			if (remoteRobotSupports("oculus")) {
 				sensorDevice.resetSensor();
 			} else {
-	 			poleUpState = 1;
+	 			poleUp();
 			}
 			return true;
 
@@ -268,7 +301,7 @@ function keydown(e) {
 			if (navigator.getVRDevices) {
 				beginOculusMode();
 			} else {
-				poleDownState = 1;
+				poleDown();
 			}
 			return false;
 
@@ -285,6 +318,27 @@ function keydown(e) {
  	}
 	return; //using "return" other attached events will execute
 };
+
+function keydrive() {
+	var keyupdown = require('keyupdown');
+	
+	var stdin = process.openStdin(); 
+	process.stdin.setRawMode(true);  
+	keyupdown(stdin);
+
+	stdin.on('keydown', function(){
+	  debug("keydown")
+	});
+	stdin.on('keyup', function(){
+	  debug("keyup")
+	});
+
+	stdin.on('keypress', function (chunk, key) {
+	  debug('Get Chunk: %s (%s), Key: %j', chunk || key.sequence, new Buffer(chunk || key.sequence)[0], key);
+	  
+	  if (key && key.ctrl && key.name == 'c') process.exit();
+	});
+}
 
 function keyup(e) {
 	if (!opentokSessionId) {
@@ -493,7 +547,7 @@ function setupSocket() {
 				debug("Goodbye from robot.");
 				setTimeout(endSession, 100);
 				if (values && values["error"]) {
-					alert("Error: "+ values["error"]);
+					debug("Error: "+ values["error"]);
 				}
 				break;
 
@@ -502,13 +556,6 @@ function setupSocket() {
 				opentokSessionId = values.openTokSessionId;
 				opentokSessionToken = values.openTokSessionToken;
 				opentokConnect();
-
-				if (sessionIsViewer || sessionIsMultipartyHost) {
-					sendCommand(commands.kDRCommandRequestJoinKey);
-					if (sessionIsViewer) {
-						sendCommandWithData(commands.kDRCommandViewerDidJoinSession, { "name": multipartyViewerName, "viewerId": multipartyViewerId });
-					}
-				}
 				break;
 
 			case commands.kDRCommandStatusData:
@@ -535,14 +582,12 @@ function setupSocket() {
 				break;
 
 			case commands.kDRCommandPhoto:
-				// debug("got photo");
-				// location.href = 'data:image/png;base64,' + values["photo"];
-				// document.getElementById("photoBucket").src = "data:image/jpeg;base64,"+ values["photo"];
-				var blob = b64toBlob(values["photo"], "image/jpg");
-				// var blobUrl = URL.createObjectURL(blob);
-				// location = blobUrl;
-				downloadBlob(blob, "photo.jpg");
-				debug("Photo Downloaded.");
+				var fileName = "photo.jpg";
+				
+				downloadFile(values["photo"], fileName);
+				
+				debug("Photo Downloaded: ", fileName);
+				
 				break;
 
 			case commands.kDRCommandResetVideoLink:
@@ -593,23 +638,6 @@ function setupSocket() {
 	self.emit('connecting');
 }
 
-var flipResizeCounter = 0;
-var flipResizeInterval = null;
-
-function repeatCenterRemoteVideo() {
-	// fix for opentok v2.0.14.1 - after flip, video element was 1px x 1px, so we have to re-position it
-	flipResizeCounter = 0;
-	clearInterval(flipResizeInterval);
-	flipResizeInterval = setInterval(function () {
-		centerRemoteVideo();
-	
-		flipResizeCounter++;
-		if (flipResizeCounter > 50) {
-			clearInterval(flipResizeInterval);
-		}
-	}, 250);
-}
-
 function socketIsConnected() {
 	return isConnected;
 }
@@ -640,6 +668,7 @@ function didLogOut() {
 }
 
 function getListOfRobots() {
+	lastRobotsString = "";
 	sendCommand(commands.kDRCommandRequestListOfRobots);
 }
 
@@ -705,8 +734,12 @@ function sendCommandWithData(commandId, data) {
 }
 
 function connectTo(installationId, access_key) {
-	// if (currentUser == null) { return; }
+	if (!self.robots) { return; }
+	
+	installationId = installationId || self.robots[0].dictionary.installationId;
+	 
 	debug("connecting to", installationId);
+	
 	var options = { "robotInstallationId" : installationId };
 	if (access_key) {
 		options.access_key = access_key;
@@ -1109,36 +1142,15 @@ function speakerVolumeDown() {
 	}
 }
 
-function b64toBlob(b64Data, contentType, sliceSize) {
-    contentType = contentType || '';
-    sliceSize = sliceSize || 512;
-
-    var byteCharacters = atob(b64Data);
-    var byteArrays = [];
-
-    for (var offset = 0; offset < byteCharacters.length; offset += sliceSize) {
-        var slice = byteCharacters.slice(offset, offset + sliceSize);
-
-        var byteNumbers = new Array(slice.length);
-        for (var i = 0; i < slice.length; i++) {
-            byteNumbers[i] = slice.charCodeAt(i);
-        }
-
-        var byteArray = new Uint8Array(byteNumbers);
-
-        byteArrays.push(byteArray);
-    }
-
-    var blob = new Blob(byteArrays, {type: contentType});
-    return blob;
-}
-
-function downloadBlob(blob, fileName) {
-	var url = URL.createObjectURL(blob);
-
-	self.emit('downloaded', url);
+function downloadFile(b64Data, fileName) {
+	require("fs").writeFileSync(fileName, b64Data, 'base64', function(err) {
+	  console.log(err);
+	});
+		
+	self.downloadedData = b64Data;
+	self.downloadedFileName = fileName;
 	
-	URL.revokeObjectURL(url);
+	self.emit('downloaded', fileName);
 }
 
 function takePhoto() {
@@ -1231,11 +1243,20 @@ function updateRobotsOnMap() {
 
 		if (publicRobotsSwitch == 1) {
 			robots = robotsPublic;
-		} else {
+		} else if (publicRobotsSwitch == 0) {
 			robots = robotsPrivate;
+		} else {
+			robots = robotsPublic.concat(robotsPrivate);
 		}
+		
+		self.robots = robots;
 
 		if (robots.length > 0) {
+			debug('robots[%s]:', robots.length);
+			for (i in robots) {
+				debug(robots[i]);
+			}
+			
 			self.emit('robots', robots);
 		} else {
 			self.emit('error', new Error('No Robots Connected'));
@@ -1268,15 +1289,55 @@ function makeInstallationId() {
 
 	return text;
 }
+
+function Robot() {
+	this.longitude = 0.0;
+	this.latitude = 0.0;
+	this.dictionary = {};
+}
+
+function RobotWithSetup(lon, lat, d) {
+	var n = new Robot();
+	n.longitude = (lon) ? lon : 0;
+	n.latitude = (lat) ? lat : 0;
+	n.dictionary = d;
+	return n;
+}
+
+function opentokConnect() {
+	debug('opentokSessionId:', opentokSessionId);
+	debug('opentokSessionToken:', opentokSessionToken);
+	//TODO: Figure out how to run opentok SDK from node to stream the WebRTC data
+}
+
+function opentokDisconnect() {
+	
+}
+
 //************************************************************************************
 
 	extend(self, {
 		setup: setup,
+		socketIsConnected: socketIsConnected,
 		makeInstallationId: makeInstallationId,
 		getListOfRobots: getListOfRobots,
 		connectTo: connectTo,
+		disconnect: disconnect,
+		keydrive: keydrive,
 		keydown: keydown,
 		keyup: keyup,
+		reset: reset,
+		fireDriveCommands: fireDriveCommands,
+		park: parkAction,
+		flip: flipAction,
+		turnLeft: turnLeft,
+		turnRight: turnRight,
+		poleUp: poleUp,
+		poleDown: poleDown,
+		moveForward: moveForward,
+		moveBackward: moveBackward,
+		takePhoto: takePhoto,
+		debug: debug,
 	});
 	
 	//initializing
