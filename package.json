@@ -1,6 +1,6 @@
 {
-  "name": "mobiblu-double",
-  "repository": "octoblu/mobiblu-double",
+  "name": "meshblu-double",
+  "repository": "robertoandrade/meshblu-double",
   "version": "1.0.0",
   "scripts": {
     "start": "node command.js",
