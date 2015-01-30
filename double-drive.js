@@ -326,17 +326,33 @@ function keydrive() {
 	process.stdin.setRawMode(true);  
 	keyupdown(stdin);
 
-	stdin.on('keydown', function(){
-	  debug("keydown")
-	});
-	stdin.on('keyup', function(){
-	  debug("keyup")
-	});
-
-	stdin.on('keypress', function (chunk, key) {
-	  debug('Get Chunk: %s (%s), Key: %j', chunk || key.sequence, new Buffer(chunk || key.sequence)[0], key);
+	var keyobj = {};
+	var keycode = -1;
+	
+	var codes = {
+		up: 38,
+		down: 40,
+		left: 37,
+		right: 39,
+	};
+	
+	stdin.on('keydown', function(chunk, key){
+	  keyobj = key;
+	  keycode = key && codes[key.name] || new Buffer(chunk || key && key.sequence)[0];
 	  
-	  if (key && key.ctrl && key.name == 'c') process.exit();
+	  //debug('keydown - Code: %s (%s), Key: %j', keycode, chunk || key.sequence, key);
+	  keydown({
+		 keyCode: keycode,
+		 shiftKey: keyobj && keyobj.shift
+	  });
+	});
+	
+	stdin.on('keyup', function(a, b){
+	  //debug('keyup - Code: %s', keycode);
+	  keyup({
+		 keyCode: keycode,
+		 shiftKey: keyobj && keyobj.shift
+	  });
 	});
 }
 
@@ -562,7 +578,7 @@ function setupSocket() {
 /* 				debug("status: "+ JSON.stringify(values)); */
 				kickstandState = values.kickstand;
 				statusValues = values;
-				updateUserInterface();
+				updateUserState();
 				break;
 
 			case commands.kDRCommandPoleMoving:
@@ -571,7 +587,7 @@ function setupSocket() {
 				
 			case commands.kDRCommandRobotiPadOrientation:
 				robotiPadOrientation = values.robot_ipad_orientation;
-				updateUserInterface();
+				updateUserState();
 	
 				if (values.robot_ipad_orientation == 1) {
 					// don't flip upside down
@@ -686,7 +702,7 @@ function flip() {
 	}
 
 	isFlipped = !isFlipped;
-	updateUserInterface();
+	updateUserState();
 	sendCommand(commands.kDRCommandFlipCamera);
 }
 
@@ -794,7 +810,7 @@ function beginSession() {
 	self.emit("connecting");
 
 	resetSessionVariables();
-	updateUserInterface();
+	updateUserState();
 
 	if (sessionIsViewer) {
 	} else {
@@ -915,7 +931,7 @@ function fireDriveCommands() {
 
 // Button Actions
 
-function updateUserInterface() {
+function updateUserState() {
 	// park
 	switch (kickstandState) {
 		case kDRKickstand_stateDeployed:
@@ -981,6 +997,8 @@ function updateUserInterface() {
 	checkDrivingTall();
 
 	self.status = statusValues;
+	
+	self.emit('state_updated');
 }
 
 function checkDrivingTall() {
@@ -1005,7 +1023,7 @@ function checkDrivingTall() {
 
 function endAction() {
 	disconnect();
-	updateUserInterface();
+	updateUserState();
 }
 
 function parkAction() {
@@ -1032,7 +1050,7 @@ function parkAction() {
 			break;
 			break;
 	}
-	updateUserInterface();
+	updateUserState();
 }
 
 function flipAction() {
@@ -1054,13 +1072,13 @@ function muteAction() {
 function muteEnable() {
 	opentokPublisher.publishAudio(false);
 	isMuted = true;
-	updateUserInterface();
+	updateUserState();
 }
 
 function muteDisable() {
 	opentokPublisher.publishAudio(true);
 	isMuted = false;
-	updateUserInterface();
+	updateUserState();
 }
 
 var volumeTimeout;
@@ -1082,7 +1100,7 @@ function volumeUp() {
 	}
 	robotSpeakerVolumeToSend = Math.min(1, statusValues.volume + 0.1);
 	statusValues.volume = robotSpeakerVolumeToSend;
-	updateUserInterface();
+	updateUserState();
 }
 
 function volumeDown() {
@@ -1091,7 +1109,7 @@ function volumeDown() {
 	if (statusValues.volume <= 0.01) {
 		muteEnable();
 	}
-	updateUserInterface();
+	updateUserState();
 }
 
 // Speaker Actions
@@ -1107,13 +1125,13 @@ function speakerMuteAction() {
 function speakerMuteEnable() {
 	opentokSubscriber.subscribeToAudio(false);
 	speakerIsMuted = true;
-	updateUserInterface();
+	updateUserState();
 }
 
 function speakerMuteDisable() {
 	opentokSubscriber.subscribeToAudio(true);
 	speakerIsMuted = false;
-	updateUserInterface();
+	updateUserState();
 }
 
 function speakerVolumeSliderDidChange(theValue) {
@@ -1128,7 +1146,7 @@ function speakerVolumeUp() {
 			speakerMuteDisable();
 		}
 		opentokSubscriber.setAudioVolume(Math.min(100, opentokSubscriber.getAudioVolume() + 10));
-		updateUserInterface();
+		updateUserState();
 	}
 }
 
@@ -1138,7 +1156,7 @@ function speakerVolumeDown() {
 		if (opentokSubscriber.getAudioVolume() <= 0.01) {
 			speakerMuteEnable();
 		}
-		updateUserInterface();
+		updateUserState();
 	}
 }
 
@@ -1188,8 +1206,7 @@ function resetVideoLink(multiparty) {
 		}, 500);
 	}	
 	
-	// displayHoverMessage("Reconnecting...", " ");
-	updateUserInterface();
+	updateUserState();
 }
 
 function toggleNightVision() {
