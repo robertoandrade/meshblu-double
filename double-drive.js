@@ -6,6 +6,8 @@ var debug = require('debug')('double-drive');
 var io = require('socket.io-client'); 
 var https = require('https');
 https.globalAgent.options.rejectUnauthorized = false;
+var request = require('superagent');
+
 
 var APP_VERSION_NUM = "2.0.0";
 var APP_BUILD_NUM = "9";
@@ -1339,6 +1341,26 @@ function opentokDisconnect() {
 	
 }
 
+function uploadPhoto() {
+	var fileName = self.downloadedFileName;
+	
+	debug('uploading downloaded image to imgur:', fileName);
+
+	var upload = 
+		request
+			.post('https://api.imgur.com/3/image.xml')
+			.set('Authorization', 'Client-ID c85b0dabb7927ff')
+			.attach('image', fileName);
+	
+	upload.end(function(response) {
+		var img = response.text.replace(/\r|\n/, '').replace(/.*<link>(.*)<\/link>.*/, "$1").trim();
+		
+		debug("uploaded:", img);
+		
+		self.emit("uploaded", img);
+	});
+}
+
 //************************************************************************************
 
 	extend(self, {
@@ -1364,6 +1386,7 @@ function opentokDisconnect() {
 		move: move,
 		look: look,
 		takePhoto: takePhoto,
+		uploadPhoto: uploadPhoto,
 		debug: debug,
 	});
 	

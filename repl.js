@@ -94,21 +94,8 @@ drive.on("robots", auto);
 drive.on("downloaded", auto);
 
 drive.openDownloaded = function() {
-	var fileName = drive.downloadedFileName;
-	
-	drive.debug('uploading downloaded image to imgur:', fileName);
-	
-	var request = require('superagent');
-
-	var upload = 
-		request
-			.post('https://api.imgur.com/3/image.xml')
-			.set('Authorization', 'Client-ID c85b0dabb7927ff')
-			.attach('image', fileName);
-	
-	upload.end(function(response) {
-		var img = response.text.replace(/\r|\n/, '').replace(/.*<link>(.*)<\/link>.*/, "$1").trim();
-		
+	drive.uploadPhoto();
+	drive.on("uploaded", function(img) {
 		drive.debug('uploaded image (will open on browser):', img);
 		
 		require('open')(img);
