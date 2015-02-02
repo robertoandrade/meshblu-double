@@ -14,6 +14,8 @@ var MESSAGE_SCHEMA = {
       enum: [
 		"getListOfRobots",
 		"getStateUpdate",
+		"getOpentokSession",
+		"connect",
 		"connectTo",
 		"disconnect",
 		"reset",
@@ -53,6 +55,10 @@ var OPTIONS_SCHEMA = {
       type: 'string',
       required: true
     },
+    autoConnect: {
+      type: 'boolean',
+      required: false
+    },
     public_key: {
       type: 'string',
       required: false
@@ -80,6 +86,16 @@ function getDefaultOptions(callback) {
 	});
 }
 
+function connect(drive, options) {
+	if (!drive.connectedTo) {
+		debug("connected. calling robot...");
+		
+		drive.connectTo(options.robotInstallationId);
+		
+		drive.connectedTo = options.robotInstallationId;
+	}
+}
+
 //TODO: Do we need to receive messenger, options, api, deviceObj?
 function Plugin(){
   debug("constructing...");  
@@ -92,14 +108,22 @@ util.inherits(Plugin, EventEmitter);
 
 Plugin.prototype.onMessage = function(message){
   debug("onMessage", message);
+  
+  var plugin = this;
 	
   var payload = message.payload;
   var func = this.drive[payload.action];
   
   if (payload.action) {
-	  debug("invoking action:", payload.action, "with params:", payload.args, func);
+	  debug("invoking action:", payload.action, "with params:", payload.args, 'function:', func);
 	  
 	  if (func) func.apply(this.drive, payload.args || []);
+	  
+	  if (payload.action == "connect") {
+		  connect(plugin.drive, plugin.options);
+	  } else if (payload.action == "disconnect") {
+		  delete plugin.drive.connectedTo;
+	  }
   }
 	  
   this.lastAction = payload.action;
@@ -137,17 +161,17 @@ Plugin.prototype.setOptions = function(options){
   }
   
   drive.on("robots", function(robots) {
-	  if (!drive.connectedTo) {
-		  debug("connected. calling robot...");
-	  
-		  drive.connectTo(options.robotInstallationId);
-		  
-		  drive.connectedTo = options.robotInstallationId;
+	  if (options.autoConnect) {
+		  connect(drive, options);
 	  }
 	  
 	  emitIf("getListOfRobots", 'robots', robots);
   });
   
+  drive.on("opentok", function(opentok) {
+	  plugin.emit("message", {devices: ['*'], topic: "opentok", payload: opentok});
+  });
+
   drive.on("state_updated", function() {
 	  var state = extend({}, drive);
 	  
@@ -175,6 +199,7 @@ Plugin.prototype.setOptions = function(options){
   drive.on("error", function(error) {
 	  plugin.emit("message", {devices: ['*'], topic: "error", payload: error});
   });
+  
 };
 
 module.exports = {

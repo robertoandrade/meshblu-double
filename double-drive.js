@@ -1334,11 +1334,25 @@ function RobotWithSetup(lon, lat, d) {
 function opentokConnect() {
 	debug('opentokSessionId:', opentokSessionId);
 	debug('opentokSessionToken:', opentokSessionToken);
-	//TODO: Figure out how to run opentok SDK from node to stream the WebRTC data
+	
+	this.opentok = {
+		sessionId: opentokSessionId,
+		sessionToken: opentokSessionToken
+	};
+	
+	self.emit('opentok', this.opentok);
+	
+	//TODO: Figure out how to run opentok SDK from node to stream the WebRTC data, archives? https://tokbox.com/opentok/libraries/server/node/
 }
 
 function opentokDisconnect() {
 	
+}
+
+function getOpentokSession() {
+	emit('opentok', this.opentok);
+	
+	return this.opentok;
 }
 
 function uploadPhoto() {

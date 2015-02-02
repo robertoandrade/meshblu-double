@@ -1,0 +1,68 @@
+<html>
+<head>
+<script src="http://meshblu.octoblu.com/js/meshblu.js"></script>
+<script src="http://static.opentok.com/webrtc/v2.2/js/opentok.min.js" ></script>
+<script>
+	var conn = skynet.createConnection({
+		"uuid" : localStorage.uuid,
+		"token" : localStorage.token,
+	});
+	
+	var opentok = {
+		apiKey: 10772502,
+		sessionId: '1_MX4xMTI3fn4xNDIyOTAzNjEwOTQzfkZocys3bUNId0xYNS9aRElDWEkxN1ZQd35Qfg',
+		sessionToken: 'T1==cGFydG5lcl9pZD0xMTI3JnNpZz1hZDczNWViZTBlZmViZmQ0MDNmYmE3Nzk5M2UwMTNjYzdjNWJmOWEzOnNlc3Npb25faWQ9MV9NWDR4TVRJM2ZuNHhOREl5T1RBek5qRXdPVFF6Zmtab2N5czNiVU5JZDB4WU5TOWFSRWxEV0VreE4xWlFkMzVRZmcmY3JlYXRlX3RpbWU9MTQyMjkwMzc0MSZub25jZT0wLjc2NzU4Mjg0ODkwMDkyOTEmcm9sZT1wdWJsaXNoZXImZXhwaXJlX3RpbWU9MTQyMjk5MDE0MQ=='
+	}
+
+	conn.on('notReady', function(device) {
+		console.log('UUID FAILED AUTHENTICATION!');
+		console.log(device);
+	});
+
+	conn.on('ready', function(device) {
+		console.log('UUID AUTHENTICATED!');
+		console.log(device);
+		
+		localStorage.uuid = device.uuid;
+		localStorage.token = device.token;
+
+		// Send and receive messages
+		conn.message({
+			"devices" : "*",
+			"topic": "connect",
+			"payload" : {
+				"action" : "connect"
+			}
+		});
+	});
+	
+	conn.on('message', function(msg) {
+		console.log('RECEIVED:');
+		console.log(msg);
+		
+		if (msg.topic == 'opentok') {
+			opentok.sessionId = msg.payload.sessionId;
+			opentok.sessionToken = msg.payload.sessionToken;
+			
+			opentokConnect();
+		}
+	});
+	
+	function opentokConnect() {
+		var session = OT.initSession(opentok.apiKey, opentok.sessionId);
+		 
+		session.on("streamCreated", function(event) {
+		  session.subscribe(event.stream);
+		});
+		
+		session.connect(opentok.sessionToken, function(error) {
+		  var publisher = OT.initPublisher();
+		  session.publish(publisher);
+		});
+	}
+</script>
+</head>
+<body>
+Meshblu Double client-side app
+</body>
+</html>
